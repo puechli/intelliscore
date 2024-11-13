@@ -2,6 +2,7 @@ import pygame as py
 import numpy as np
 import pyaudio as pa
 from sys import argv
+import time
 
 # Initialize py
 py.init()
@@ -39,12 +40,21 @@ def resize_image(image:py.Surface, scale:float) -> py.Surface:
     height:int= int(image.get_height()* scale)
     return py.transform.scale(image, (width, height))
 
-# Audio settings
-CHUNK = 1024
+
+# Audio settings for linux
+# CHUNK = 1024
+# FORMAT = pa.paInt16
+# CHANNELS = 2
+# RATE = 44100
+# THRESHOLD = 5000 if len(argv) < 2 else int(argv[1])
+
+
+# Audio settings for MAC
+CHUNK = 4096
 FORMAT = pa.paInt16
-CHANNELS = 2
-RATE = 44100
-THRESHOLD = 5000 if len(argv) < 2 else int(argv[1])
+CHANNELS = 1
+RATE = 22050
+THRESHOLD = 400 if len(argv) < 2 else int(argv[1])
 
 p = pa.PyAudio()
 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
