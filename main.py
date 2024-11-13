@@ -2,6 +2,7 @@ import pygame as py
 import numpy as np
 import pyaudio as pa
 from sys import argv
+import cv2
 
 # Initialize py
 py.init()
@@ -23,7 +24,7 @@ screen = py.display.set_mode((window_width, window_height))
 # Coordinates of the picture
 x:int = 0 # Serves as shift among music sheet
 y:int = image_height // 2 # Middle of the screen among Y axis
-stp_x:int = 1
+stp_x:int = 10
 max_x:int = 0
 min_x:int = window_width - image_width
 
@@ -48,6 +49,15 @@ THRESHOLD = 5000 if len(argv) < 2 else int(argv[1])
 
 p = pa.PyAudio()
 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+
+# Initialize camera
+cap = cv2.VideoCapture(0)
+camera_width = 160
+camera_height = 120
+
+# Motion detection parameters
+motion_threshold = 5000 if len(argv) < 3 else int(argv[2])
+previous_frame = None
 
 # Game loop
 clock = py.time.Clock()
@@ -75,9 +85,41 @@ while running:
     # Draw the image onto the screen
     screen.blit(resize_image(image, cur_zoom), (x, y))
 
+    # Read camera frame
+    ret, frame = cap.read()
+    if ret:
+        # Convert frame to RGB format
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Convert OpenCV numpy array to Pygame surface
+        surf = py.surfarray.make_surface(frame)
+        
+        # Rotate the surface using Pygame's transform functions
+        rotated_surf = py.transform.rotate(surf, 270)
+        
+        # Resize the rotated surface to fit in the corner
+        resized_surf = py.transform.scale(rotated_surf, (camera_width, camera_height))
+        
+        # Blit the rotated and resized surface to the main screen
+        screen.blit(resized_surf, (window_width - camera_width, window_height - camera_height))
+
+        # Perform motion detection
+        if previous_frame is not None:
+            diff = cv2.absdiff(previous_frame, frame)
+            gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            _, thresh = cv2.threshold(blur, motion_threshold, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Move the main image right if motion is detected
+            if contours: x = max(min_x, x - stp_x)
+
+        previous_frame = frame
+
     # Update the display
     py.display.flip()
     clock.tick(60)
 
 # Quit py
 py.quit()
+cap.release()
