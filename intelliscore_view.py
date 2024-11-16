@@ -10,7 +10,6 @@ import os
 # Couleurs prédéfinies
 PRIMARY_COLOR = "#2C3E50"  # Bleu foncé
 SECONDARY_COLOR = "#ECF0F1"  # Gris clair
-FOLDER_PATH = "/home/ssidd/Documents/EKOL/GreRasme/CM/projetDeGroup/"
 class SheetMusicViewer(QMainWindow):
     def __init__(self, image_path):
         super().__init__()
@@ -198,7 +197,7 @@ class SheetMusicViewer(QMainWindow):
 
     def update_logo_size(self):
         """Méthode séparée pour mettre à jour la taille du logo"""
-        logo_pixmap = QPixmap(FOLDER_PATH+"intelliscore_logo.png")
+        logo_pixmap = QPixmap("intelliscore_logo.png")
         if not logo_pixmap.isNull():
             effective_height = self.control_widget.height() - 10
             max_width = self.width() // 3 * 2
@@ -435,5 +434,5 @@ class ResizeHandle(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    viewer = SheetMusicViewer(FOLDER_PATH+"sheet.png")
+    viewer = SheetMusicViewer("sheet.png")
     sys.exit(app.exec_())
