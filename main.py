@@ -8,7 +8,7 @@ import cv2
 py.init()
 
 # Load the image and its background color
-image_path = "Outer_Wilds.png"
+image_path = "sheet.png"
 try: image = py.image.load(image_path)
 except py.error as e: raise Exception(f"Error loading image: {e}")
 background_color = image.get_at((0,0))[:3]
@@ -58,11 +58,15 @@ camera_height = 120
 # Motion detection parameters
 motion_threshold = 5000 if len(argv) < 3 else int(argv[2])
 previous_frame = None
+motion_deceleration = 0.3
+motion_speed = 8.0
+motion_cur = 0.0
+motion_flipped:bool = False
 
 # Metronome settings
 metronome_division:float = 0.25
 metronome_speed:float = 96.0
-shift_multiplier:float = 0.1 if len(argv) < 4 else int(argv[3])
+shift_multiplier:float = 0.12 if len(argv) < 4 else float(argv[3])
 shift_speed:int = int(metronome_division * metronome_speed * shift_multiplier)
 metronome_activated:bool = False
 
@@ -91,7 +95,8 @@ while running:
     # Check audio volume
     data = np.frombuffer(stream.read(CHUNK), dtype=np.int16)
     volume = np.abs(data).mean()
-    if volume > THRESHOLD: x = max(min_x, x - stp_x * cur_zoom) if not(metronome_activated) else x
+    if volume > THRESHOLD:
+        x = max(min_x, x - shift_speed * cur_zoom) if not(metronome_activated) else x
 
     # Fill the background with white
     screen.fill(background_color)
@@ -126,7 +131,13 @@ while running:
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             # Move the main image right if motion is detected
-            if contours: x = max(min_x, x - stp_x * cur_zoom)
+            if contours and not(motion_flipped):
+                motion_cur += motion_speed
+                motion_flipped = True
+            elif motion_flipped:
+                motion_flipped = False
+            motion_cur = max(0, motion_cur - motion_deceleration)
+            x = max(min_x, x - motion_cur * cur_zoom)
 
         previous_frame = frame
 
