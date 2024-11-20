@@ -83,14 +83,20 @@ while running:
 
     keys = py.key.get_pressed()
 
-    if   keys[py.K_UP]:    cur_zoom = min(max_zoom, cur_zoom * stp_zoom) if not(metronome_activated) else cur_zoom
-    elif keys[py.K_DOWN]:  cur_zoom = max(min_zoom, cur_zoom / stp_zoom) if not(metronome_activated) else cur_zoom
+    if keys[py.K_UP]:
+        if not(metronome_activated):
+            cur_zoom = min(max_zoom, cur_zoom * stp_zoom)
+            min_x = window_width - image_width * cur_zoom
+    elif keys[py.K_DOWN]:
+        if not(metronome_activated):
+            cur_zoom = max(min_zoom, cur_zoom / stp_zoom)
+            min_x = window_width - image_width * cur_zoom
     elif keys[py.K_LEFT]:  x = min(max_x, x + stp_x * cur_zoom) if not(metronome_activated) else x
     elif keys[py.K_RIGHT]: x = max(min_x, x - stp_x * cur_zoom) if not(metronome_activated) else x
 
     # Shift about metronome
     if metronome_activated:
-        x = x = max(min_x, x - shift_speed * cur_zoom)
+        x = max(min_x, x - shift_speed * cur_zoom)
 
     # Check audio volume
     data = np.frombuffer(stream.read(CHUNK), dtype=np.int16)
