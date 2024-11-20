@@ -1,16 +1,33 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QLabel, QWidget, 
-                            QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QScrollArea)
+                            QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, 
+                            QScrollArea, QSpinBox, QCheckBox, QFormLayout, QComboBox)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QPainter, QImage, QPalette, QColor
 import numpy as np
 import os
 
-
 # Couleurs prédéfinies
 PRIMARY_COLOR = "#2C3E50"  # Bleu foncé
 SECONDARY_COLOR = "#ECF0F1"  # Gris clair
+
+# Chemin du dossier
 FOLDER_PATH = "/home/ssidd/Documents/EKOL/GreRasme/CM/projetDeGroup/"
+
+# Variables d'initialisation pour SheetMusicViewer
+INITIAL_ZOOM_FACTOR = 1.0
+INITIAL_SCROLL_SPEED = 5
+INITIAL_MEASURE_LENGTH = 140
+INITIAL_CONTINUOUS_SCROLL_SPEED = 4
+
+# Variables d'initialisation pour SheetMusicViewer
+INITIAL_ZOOM_FACTOR = 1.0
+INITIAL_SCROLL_SPEED = 5
+INITIAL_MEASURE_LENGTH = 140
+INITIAL_CONTINUOUS_SCROLL_SPEED = 4
+
+CONTROL_PANEL_MAX_HEIGHT= 300
+
 class SheetMusicViewer(QMainWindow):
     def __init__(self, image_path):
         super().__init__()
@@ -20,18 +37,18 @@ class SheetMusicViewer(QMainWindow):
         self.apply_styles()
         
         self.show()
-        self.resize(800, 600)
+        self.resize(1200, 900)
 
     def init_variables(self, image_path):
         self.image_path = image_path
-        self.zoom_factor = 1.0
+        self.zoom_factor = INITIAL_ZOOM_FACTOR
         self.scroll_position = 0
         self.is_scrolling = False
         self.is_key_held = False
-        self.scroll_speed = 5
+        self.scroll_speed = INITIAL_SCROLL_SPEED
         self.scroll_target = 100
-        self.measure_length = 140
-        self.continuous_scroll_speed = 4
+        self.measure_length = INITIAL_MEASURE_LENGTH
+        self.continuous_scroll_speed = INITIAL_CONTINUOUS_SCROLL_SPEED
 
     def init_ui(self):
         self.setWindowTitle("Visualiseur de Partition")
@@ -44,10 +61,11 @@ class SheetMusicViewer(QMainWindow):
         self.setup_image_display()
         
     def setup_control_panel(self):
+        self.active_variables = []
         # Widget de contrôle avec taille minimale
         self.control_widget = QWidget()
         self.control_widget.setMinimumHeight(50)
-        self.control_widget.setMaximumHeight(200)
+        self.control_widget.setMaximumHeight(CONTROL_PANEL_MAX_HEIGHT)
         
         # Layout principal pour le panneau de contrôle
         control_main_layout = QVBoxLayout()
@@ -56,39 +74,23 @@ class SheetMusicViewer(QMainWindow):
         
         # Layout pour le contenu du panneau de contrôle
         self.control_layout = QHBoxLayout()
-        self.control_layout.setContentsMargins(10, 5, 10, 5)
+        self.control_layout.setContentsMargins(0, 0, 0, 0)
         
         # Widget conteneur pour les contrôles avec style transparent
         controls_container = QWidget()
         controls_container.setStyleSheet("border: none;")
-        controls_container_layout = QHBoxLayout(controls_container)
+        controls_container_layout = QVBoxLayout(controls_container)
         controls_container_layout.setContentsMargins(0, 0, 0, 0)
         
         # Création du layout pour tous les contrôles (à gauche)
         controls_layout = QVBoxLayout()
-        controls_layout.setSpacing(5)
-        controls_layout.setAlignment(Qt.AlignVCenter)
         
         # Layout horizontal pour la longueur
-        length_layout = QHBoxLayout()
-        length_label = QLabel("Longueur:")
-        length_label.setStyleSheet(f"color: {PRIMARY_COLOR}; border: none;")
-        self.length_input = QLineEdit(str(self.measure_length))
-        self.length_input.setFixedWidth(50)
-        self.length_input.setStyleSheet(self.get_input_style())
-        length_layout.addWidget(length_label)
-        length_layout.addWidget(self.length_input)
+        length_layout = self.add_spinbox("measure_length", self.measure_length,  rangemin=50, rangemax=300, stepsize=30)
         length_layout.addStretch()
         
+        speed_layout = self.add_spinbox("continious_scroll_speed", self.continuous_scroll_speed)
         # Layout horizontal pour la vitesse
-        speed_layout = QHBoxLayout()
-        speed_label = QLabel("Vitesse:")
-        speed_label.setStyleSheet(f"color: {PRIMARY_COLOR}; border: none;")
-        self.speed_input = QLineEdit(str(self.continuous_scroll_speed))
-        self.speed_input.setFixedWidth(50)
-        self.speed_input.setStyleSheet(self.get_input_style())
-        speed_layout.addWidget(speed_label)
-        speed_layout.addWidget(self.speed_input)
         speed_layout.addStretch()
         
         # Bouton Update
@@ -102,37 +104,54 @@ class SheetMusicViewer(QMainWindow):
         button_layout.addWidget(update_button)
         button_layout.addStretch()
         
+        self.setup_advanced_menu()
+        
         # Empiler les contrôles verticalement
         controls_layout.addLayout(length_layout)
         controls_layout.addLayout(speed_layout)
-        controls_layout.addLayout(button_layout)
-        
+
+        for  widget, layout, input, function, _ in self.advanced_variables:
+            controls_layout.addLayout(layout)
         # Ajouter le layout des contrôles avec alignement à gauche
         controls_container_layout.addLayout(controls_layout)
+        controls_container_layout.addLayout(self.advanced_button_layout)
+        controls_container_layout.addLayout(button_layout)
         controls_container_layout.addStretch()
         
         # Widget conteneur pour le logo avec style transparent
         logo_container = QWidget()
         logo_container.setStyleSheet("border: none;")
         logo_layout = QVBoxLayout(logo_container)
-        logo_layout.setAlignment(Qt.AlignCenter)
+        logo_layout.setAlignment(Qt.AlignTop)
+
         
         # Logo au centre
         self.logo_label = QLabel()
         self.logo_label.setStyleSheet("border: none;")
         self.update_logo_size()
-        self.logo_label.setAlignment(Qt.AlignCenter)
+        self.logo_label.setAlignment(Qt.AlignTop)
         
         # Ajouter le logo au layout
         logo_layout.addWidget(self.logo_label)
         
+        # different modes
+        mode_selection_menu = QComboBox()
+        mode_selection_menu_layout = QVBoxLayout(mode_selection_menu)
+        mode_selection_menu_layout.setAlignment(Qt.AlignTop)
+        mode_selection_menu.setMaximumWidth(100)
+        mode_selection_menu.addItems(["Mode 1", "Mode 2", "Mode 3"])  # Add your modes here
+
+        
         # Assemblage du layout principal avec des poids
         self.control_layout.addWidget(controls_container, 1)
         self.control_layout.addWidget(logo_container, 2)
+        self.control_layout.addWidget(mode_selection_menu, 3)
         
+
         # Créer un widget conteneur pour le contenu
         content_widget = QWidget()
         content_widget.setLayout(self.control_layout)
+
         
         # Ajouter le contenu et la poignée de redimensionnement
         control_main_layout.addWidget(content_widget)
@@ -156,6 +175,109 @@ class SheetMusicViewer(QMainWindow):
         self.control_widget.installEventFilter(self)
         self.is_resizing = False
         self.resize_area_height = 10
+
+    def setup_advanced_menu(self):
+
+        # Button to toggle the advanced settings
+        self.advanced_button = QPushButton("Advanced Settings")
+        self.advanced_button.setCheckable(True)
+        self.advanced_button.clicked.connect(self.toggle_advanced_menu)
+        self.advanced_button.setMaximumWidth(150)
+        self.advanced_button.setStyleSheet(self.get_button_style())
+        self.advanced_button_layout = QVBoxLayout()
+        self.advanced_button_layout.addWidget(self.advanced_button)
+
+        # Advanced settings layout
+        self.advanced_layout = QFormLayout()
+        self.advanced_variables = []
+
+        # Zoom Factor
+        self.add_spinbox("zoom_factor", self.zoom_factor, advanced=True)
+        # Scroll Speed
+        self.add_spinbox("scroll_speed", self.scroll_speed, advanced=True)
+        # Continuous Scroll Speed
+        self.add_spinbox("continious_scroll_speed", self.continuous_scroll_speed, rangemax=20, advanced=True)
+
+        # Checkbox for enabling/disabling some feature
+        self.enable_feature_checkbox = QCheckBox("Enable Feature X")
+        self.enable_feature_checkbox.setChecked(False)
+        # self.enable_feature_checkbox.connectNotify(self.enable_feature_checkboxChanged)
+        # self.advanced_variables.append([self.enable_feature_checkbox,self.enable_feature_checkbox.connectNotify(self.enable_feature_checkboxChanged)])
+
+    def add_spinbox(self, name, variable, rangemin=1, rangemax=10, stepsize=1, maxwidth=100, advanced=False):
+        label = QLabel(name +":")
+        label.setStyleSheet(f"color: {PRIMARY_COLOR}; border: none;")
+        
+        input_field = QLineEdit(str(variable))
+        input_field.setMaximumWidth(maxwidth)
+        input_field.setStyleSheet(self.get_input_style())
+
+        def update_function():
+            value = float(input_field.text())
+            if value < rangemin:
+                value = rangemin
+            elif value > rangemax:
+                value = rangemax
+            input_field.setText(str(value))
+            setattr(self, name, value)
+            
+
+        def increment_value():
+            value = float(input_field.text())
+            value += stepsize
+            if value > rangemax:
+                value = rangemax
+            input_field.setText(str(value))
+            setattr(self, name, value)
+            self.image_label.setFocus()
+        def decrement_value():
+            value = float(input_field.text())
+            value -= stepsize
+            if value < rangemin:
+                value = rangemin
+            input_field.setText(str(value))
+            setattr(self, name, value)
+            self.image_label.setFocus()
+
+        # Create increment button
+        increment_button = QPushButton(">")  
+        increment_button.clicked.connect(increment_value)
+        increment_button.setMaximumWidth(20)
+        increment_button.setStyleSheet(self.get_button_style())
+        
+        # Create decrement button
+        decrement_button = QPushButton("<")  
+        decrement_button.clicked.connect(decrement_value)
+        decrement_button.setMaximumWidth(20)
+        decrement_button.setStyleSheet(self.get_button_style())
+
+        layout=QHBoxLayout()
+
+        layout.addWidget(label)
+        layout.addWidget(decrement_button)
+        layout.addWidget(input_field)
+        layout.addWidget(increment_button)
+
+        def visibility_function(is_checked):
+            label.setVisible(is_checked)
+            decrement_button.setVisible(is_checked)
+            input_field.setVisible(is_checked)
+            increment_button.setVisible(is_checked)
+
+        self.active_variables.append([label, layout, input_field, update_function])
+        if advanced:
+            label.setVisible(False)
+            decrement_button.setVisible(False)
+            input_field.setVisible(False)
+            increment_button.setVisible(False)
+            self.advanced_variables.append([label, layout, input_field, update_function, visibility_function])
+        return layout
+
+    def toggle_advanced_menu(self):
+        # Toggle the visibility of the advanced settings
+        is_checked = self.advanced_button.isChecked()
+        for label, layout, input, function, visibilityfunction in self.advanced_variables:
+            visibilityfunction(is_checked)
 
     def eventFilter(self, obj, event):
         """Filtre d'événements pour gérer le curseur et le redimensionnement"""
@@ -190,7 +312,7 @@ class SheetMusicViewer(QMainWindow):
         """Effectue le redimensionnement"""
         if self.is_resizing:
             new_height = self.resize_start_height + (event.globalY() - self.resize_start_y)
-            new_height = max(50, min(200, new_height))
+            new_height = max(50, min(CONTROL_PANEL_MAX_HEIGHT, new_height))
             self.control_widget.setFixedHeight(new_height)
             self.update_logo_size()
             return True
@@ -200,7 +322,7 @@ class SheetMusicViewer(QMainWindow):
         """Méthode séparée pour mettre à jour la taille du logo"""
         logo_pixmap = QPixmap(FOLDER_PATH+"intelliscore_logo.png")
         if not logo_pixmap.isNull():
-            effective_height = self.control_widget.height() - 10
+            effective_height = self.control_widget.height()
             max_width = self.width() // 3 * 2
             
             scaled_logo = logo_pixmap.scaled(
@@ -292,27 +414,18 @@ class SheetMusicViewer(QMainWindow):
         """
 
     def update_all_values(self):
-        """Met à jour à la fois la longueur et la vitesse"""
-        # Mise à jour de la longueur
-        try:
-            new_length = int(self.length_input.text())
-            if new_length > 0:
-                self.measure_length = new_length
-            else:
-                self.length_input.setText(str(self.measure_length))
-        except ValueError:
-            self.length_input.setText(str(self.measure_length))
+        for _, _, input_field, update_function in self.active_variables:
+            try: 
+                update_function()
+            except ValueError:
+                print(f"Invalid input for {input_field}: {input_field.text()}")
 
-        # Mise à jour de la vitesse
-        try:
-            new_speed = float(self.speed_input.text())
-            if new_speed > 0:
-                self.continuous_scroll_speed = new_speed
-            else:
-                self.speed_input.setText(str(self.continuous_scroll_speed))
-        except ValueError:
-            self.speed_input.setText(str(self.continuous_scroll_speed))
-
+        if self.advanced_button.isChecked():
+            for _, _, input_field, update_function,_ in self.advanced_variables:
+                try:
+                    update_function()
+                except ValueError:
+                    print(f"Invalid input for {input_field}: {input_field.text()}")
         # Remettre le focus sur l'image_label
         self.image_label.setFocus()
 
@@ -335,7 +448,9 @@ class SheetMusicViewer(QMainWindow):
         # Mettre à jour la position horizontale du scroll
         if not self.is_scrolling:  # Seulement si pas en défilement automatique
             self.scroll_area.horizontalScrollBar().setValue(self.scroll_position)
-
+        
+        
+            
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             # Obtenir la position relative dans l'image
@@ -428,10 +543,9 @@ class ResizeHandle(QWidget):
     def mouseMoveEvent(self, event):
         if self.is_resizing:
             delta = event.globalY() - self.start_y
-            new_height = max(50, min(200, self.start_height + delta))
+            new_height = max(50, min(CONTROL_PANEL_MAX_HEIGHT, self.start_height + delta))
             self.parent().setFixedHeight(new_height)
-            if hasattr(self.parent(), 'update_logo_size'):
-                self.parent().update_logo_size()
+            viewer.update_logo_size()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
