@@ -89,7 +89,7 @@ class SheetMusicViewer(QMainWindow):
         length_layout = self.add_spinbox("measure_length", self.measure_length,  rangemin=50, rangemax=300, stepsize=30)
         length_layout.addStretch()
         
-        speed_layout = self.add_spinbox("continious_scroll_speed", self.continuous_scroll_speed)
+        speed_layout = self.add_spinbox("continuous_scroll_speed", self.continuous_scroll_speed, rangemax=20)
         # Layout horizontal pour la vitesse
         speed_layout.addStretch()
         
@@ -195,8 +195,6 @@ class SheetMusicViewer(QMainWindow):
         self.add_spinbox("zoom_factor", self.zoom_factor, advanced=True)
         # Scroll Speed
         self.add_spinbox("scroll_speed", self.scroll_speed, advanced=True)
-        # Continuous Scroll Speed
-        self.add_spinbox("continious_scroll_speed", self.continuous_scroll_speed, rangemax=20, advanced=True)
 
         # Checkbox for enabling/disabling some feature
         self.enable_feature_checkbox = QCheckBox("Enable Feature X")
